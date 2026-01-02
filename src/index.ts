@@ -10,6 +10,7 @@ import { reviewRoutes } from './routes/review/review.routes.js';
 import { messageRoutes } from './routes/message/message.routes.js';
 import { creatorRoutes } from './routes/creator/creator.routes.js';
 import { venueRoutes } from './routes/venue/venue.routes.js';
+import { notificationRoutes } from './routes/notification/notification.routes.js';
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/conversations', messageRoutes);
 app.use('/api/creators', creatorRoutes);
 app.use('/api/venues', venueRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.use(errorHandler());
 

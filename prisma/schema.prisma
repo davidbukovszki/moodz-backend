@@ -84,6 +84,15 @@ enum ContentType {
   tripadvisor_review
 }
 
+enum NotificationType {
+  application_received
+  application_accepted
+  application_rejected
+  campaign_ending
+  review_received
+  system
+}
+
 model Creator {
   id                 String    @id @default(uuid())
   email              String    @unique
@@ -112,6 +121,7 @@ model Creator {
   conversations      Conversation[]
   messages           Message[]
   activityLogs       ActivityLog[]
+  notifications      Notification[]
 
   @@map("creators")
 }
@@ -147,6 +157,7 @@ model Venue {
   messages           Message[]
   activityLogs       ActivityLog[]
   subscription       VenueSubscription?
+  notifications      Notification[]
 
   @@map("venues")
 }
@@ -374,5 +385,24 @@ model Message {
   venueSender    Venue?       @relation(fields: [senderId], references: [id], onDelete: Cascade, map: "message_venue_sender")
 
   @@map("messages")
+}
+
+model Notification {
+  id             String           @id @default(uuid())
+  userId         String
+  userType       SenderType
+  type           NotificationType
+  title          String
+  message        String
+  read           Boolean          @default(false)
+  data           Json?
+  createdAt      DateTime         @default(now())
+
+  creatorUser    Creator?         @relation(fields: [userId], references: [id], onDelete: Cascade, map: "notification_creator")
+  venueUser      Venue?           @relation(fields: [userId], references: [id], onDelete: Cascade, map: "notification_venue")
+
+  @@index([userId, userType])
+  @@index([read])
+  @@map("notifications")
 }
 

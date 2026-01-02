@@ -7,6 +7,7 @@ import {
   applicationQuerySchema,
 } from '../../validations/application/application.validation.js';
 import { Prisma } from '@prisma/client';
+import { createNotification } from '../notification/notification.controller.js';
 
 export function applyToCampaign() {
   return async (req: Request, res: Response) => {
@@ -67,6 +68,21 @@ export function applyToCampaign() {
     await prisma.campaign.update({
       where: { id: campaignId },
       data: { totalApplicants: { increment: 1 } },
+    });
+
+    // Notify venue about new application
+    const creator = await prisma.creator.findUnique({
+      where: { id: userId },
+      select: { name: true, username: true },
+    });
+
+    await createNotification({
+      userId: campaign.venueId,
+      userType: 'venue',
+      type: 'application_received',
+      title: 'New Application',
+      message: `${creator?.name || 'A creator'} applied to "${campaign.title}"`,
+      data: { applicationId: application.id, campaignId: campaign.id },
     });
 
     return sendCreated(res, { application });
@@ -222,6 +238,28 @@ export function updateApplication() {
           totalAccepted: { increment: 1 },
           spotsUsed: { increment: 1 },
         },
+      });
+
+      // Notify creator about acceptance
+      await createNotification({
+        userId: existingApp.creatorId,
+        userType: 'creator',
+        type: 'application_accepted',
+        title: 'Application Accepted!',
+        message: `Your application to "${application.campaign.title}" was accepted`,
+        data: { applicationId: application.id, campaignId: application.campaign.id },
+      });
+    }
+
+    if (status === 'rejected') {
+      // Notify creator about rejection
+      await createNotification({
+        userId: existingApp.creatorId,
+        userType: 'creator',
+        type: 'application_rejected',
+        title: 'Application Update',
+        message: `Your application to "${application.campaign.title}" was not accepted`,
+        data: { applicationId: application.id, campaignId: application.campaign.id },
       });
     }
 

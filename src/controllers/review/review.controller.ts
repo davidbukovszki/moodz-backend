@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma.js';
 import { sendSuccess, sendError, sendCreated } from '../../utils/response.js';
 import { createReviewSchema, reviewQuerySchema } from '../../validations/review/review.validation.js';
 import { Prisma, SenderType } from '@prisma/client';
+import { createNotification } from '../notification/notification.controller.js';
 
 export function createReview() {
   return async (req: Request, res: Response) => {
@@ -69,6 +70,21 @@ export function createReview() {
         data: { rating: avgRating },
       });
     }
+
+    // Get reviewer info for notification
+    const reviewerName = isCreator
+      ? (await prisma.creator.findUnique({ where: { id: userId }, select: { name: true } }))?.name
+      : (await prisma.venue.findUnique({ where: { id: userId }, select: { companyName: true } }))?.companyName;
+
+    // Notify reviewee about new review
+    await createNotification({
+      userId: revieweeId,
+      userType: isCreator ? 'venue' : 'creator',
+      type: 'review_received',
+      title: 'New Review',
+      message: `${reviewerName || 'Someone'} left you a ${result.data.rating}-star review`,
+      data: { reviewId: review.id, applicationId, rating: result.data.rating },
+    });
 
     return sendCreated(res, { review });
   };

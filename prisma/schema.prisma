@@ -146,7 +146,7 @@ model Venue {
   rating             Decimal?
   totalCampaigns     Int       @default(0)
   responseTime       String?
-  credits            Int       @default(0)
+  credits            Int       @default(12)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -389,7 +389,8 @@ model Message {
 
 model Notification {
   id             String           @id @default(uuid())
-  userId         String
+  creatorId      String?
+  venueId        String?
   userType       SenderType
   type           NotificationType
   title          String
@@ -398,10 +399,11 @@ model Notification {
   data           Json?
   createdAt      DateTime         @default(now())
 
-  creatorUser    Creator?         @relation(fields: [userId], references: [id], onDelete: Cascade, map: "notification_creator")
-  venueUser      Venue?           @relation(fields: [userId], references: [id], onDelete: Cascade, map: "notification_venue")
+  creatorUser    Creator?         @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  venueUser      Venue?           @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
-  @@index([userId, userType])
+  @@index([creatorId])
+  @@index([venueId])
   @@index([read])
   @@map("notifications")
 }

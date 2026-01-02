@@ -28,6 +28,13 @@ router.get(
 );
 
 router.get(
+  '/venue',
+  authenticate(),
+  authorizeUser(ALL_VENUES),
+  getVenueCampaigns(),
+);
+
+router.get(
   '/:campaignId',
   validateCampaign(false),
   getCampaign(),

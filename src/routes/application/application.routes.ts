@@ -6,6 +6,7 @@ import {
   applyToCampaign,
   getApplication,
   getCreatorApplications,
+  getVenueApplications,
   getCampaignApplications,
   updateApplication,
   cancelApplication,
@@ -19,6 +20,13 @@ router.get(
   authenticate(),
   authorizeUser(ALL_CREATORS),
   getCreatorApplications(),
+);
+
+router.get(
+  '/venue',
+  authenticate(),
+  authorizeUser(ALL_VENUES),
+  getVenueApplications(),
 );
 
 router.get(

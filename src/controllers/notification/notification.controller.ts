@@ -10,8 +10,9 @@ export function getNotifications() {
     const limit = parseInt(req.query.limit as string) || 20;
     const unreadOnly = req.query.unreadOnly === 'true';
 
+    const userIdField = userType === 'creator' ? 'creatorId' : 'venueId';
     const where = {
-      userId,
+      [userIdField]: userId,
       userType: userType as SenderType,
       ...(unreadOnly && { read: false }),
     };
@@ -25,7 +26,7 @@ export function getNotifications() {
       }),
       prisma.notification.count({ where }),
       prisma.notification.count({
-        where: { userId, userType: userType as SenderType, read: false },
+        where: { [userIdField]: userId, userType: userType as SenderType, read: false },
       }),
     ]);
 
@@ -46,9 +47,10 @@ export function markAsRead() {
   return async (req: Request, res: Response) => {
     const { userId, userType } = res.locals;
     const { id } = req.params;
+    const userIdField = userType === 'creator' ? 'creatorId' : 'venueId';
 
     const notification = await prisma.notification.findFirst({
-      where: { id, userId, userType: userType as SenderType },
+      where: { id, [userIdField]: userId, userType: userType as SenderType },
     });
 
     if (!notification) {
@@ -67,9 +69,10 @@ export function markAsRead() {
 export function markAllAsRead() {
   return async (req: Request, res: Response) => {
     const { userId, userType } = res.locals;
+    const userIdField = userType === 'creator' ? 'creatorId' : 'venueId';
 
     await prisma.notification.updateMany({
-      where: { userId, userType: userType as SenderType, read: false },
+      where: { [userIdField]: userId, userType: userType as SenderType, read: false },
       data: { read: true },
     });
 
@@ -77,7 +80,6 @@ export function markAllAsRead() {
   };
 }
 
-// Helper function to create notifications - used by other controllers
 export async function createNotification(data: {
   userId: string;
   userType: SenderType;
@@ -86,9 +88,11 @@ export async function createNotification(data: {
   message: string;
   data?: Record<string, unknown>;
 }) {
+  const userIdField = data.userType === 'creator' ? 'creatorId' : 'venueId';
+
   return prisma.notification.create({
     data: {
-      userId: data.userId,
+      [userIdField]: data.userId,
       userType: data.userType,
       type: data.type,
       title: data.title,

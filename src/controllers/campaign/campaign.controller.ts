@@ -8,6 +8,7 @@ import {
   campaignQuerySchema,
 } from '../../validations/campaign/campaign.validation.js';
 import { Prisma } from '@prisma/client';
+import { logActivity } from '../../utils/activityLogger.js';
 
 export function getCampaigns() {
   return async (req: Request, res: Response) => {
@@ -96,6 +97,15 @@ export function createCampaign() {
 
     const { userId } = res.locals;
 
+    const venue = await prisma.venue.findUnique({
+      where: { id: userId },
+      select: { credits: true },
+    });
+
+    if (!venue || venue.credits < 1) {
+      return sendError(res, 'Insufficient credits. Please purchase more credits to create campaigns.', 403);
+    }
+
     const campaign = await prisma.campaign.create({
       data: {
         ...result.data,
@@ -119,7 +129,17 @@ export function createCampaign() {
 
     await prisma.venue.update({
       where: { id: userId },
-      data: { totalCampaigns: { increment: 1 } },
+      data: { 
+        totalCampaigns: { increment: 1 },
+        credits: { decrement: 1 },
+      },
+    });
+
+    await logActivity({
+      venueId: userId,
+      type: 'campaign_created',
+      message: `Created campaign: "${campaign.title}"`,
+      metadata: { campaignId: campaign.id },
     });
 
     return sendCreated(res, { campaign });
@@ -188,6 +208,14 @@ export function updateCampaignStatus() {
       },
     });
 
+    const statusLabel = status === 'active' ? 'Activated' : status === 'paused' ? 'Paused' : status.charAt(0).toUpperCase() + status.slice(1);
+    await logActivity({
+      venueId: campaign.venue.id,
+      type: 'campaign_status_changed',
+      message: `${statusLabel} campaign: "${campaign.title}"`,
+      metadata: { campaignId: campaign.id, status },
+    });
+
     return sendSuccess(res, { campaign });
   };
 }
@@ -195,6 +223,7 @@ export function updateCampaignStatus() {
 export function deleteCampaign() {
   return async (_req: Request, res: Response) => {
     const { campaign, userId } = res.locals;
+    const campaignTitle = campaign.title;
 
     await prisma.campaign.delete({
       where: { id: campaign.id },
@@ -203,6 +232,13 @@ export function deleteCampaign() {
     await prisma.venue.update({
       where: { id: userId },
       data: { totalCampaigns: { decrement: 1 } },
+    });
+
+    await logActivity({
+      venueId: userId,
+      type: 'campaign_deleted',
+      message: `Deleted campaign: "${campaignTitle}"`,
+      metadata: { campaignId: campaign.id },
     });
 
     return sendNoContent(res);
@@ -231,6 +267,11 @@ export function getVenueCampaigns() {
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
+        include: {
+          _count: {
+            select: { applications: true },
+          },
+        },
       }),
       prisma.campaign.count({ where }),
     ]);

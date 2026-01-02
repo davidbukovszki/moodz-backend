@@ -8,6 +8,7 @@ import {
 } from '../../validations/application/application.validation.js';
 import { Prisma } from '@prisma/client';
 import { createNotification } from '../notification/notification.controller.js';
+import { logActivity } from '../../utils/activityLogger.js';
 
 export function applyToCampaign() {
   return async (req: Request, res: Response) => {
@@ -76,13 +77,24 @@ export function applyToCampaign() {
       select: { name: true, username: true },
     });
 
-    await createNotification({
-      userId: campaign.venueId,
-      userType: 'venue',
+    try {
+      await createNotification({
+        userId: campaign.venueId,
+        userType: 'venue',
+        type: 'application_received',
+        title: 'New Application',
+        message: `${creator?.name || 'A creator'} applied to "${campaign.title}"`,
+        data: { applicationId: application.id, campaignId: campaign.id },
+      });
+    } catch (err) {
+      console.error('Failed to create notification for new application:', err);
+    }
+
+    await logActivity({
+      venueId: campaign.venueId,
       type: 'application_received',
-      title: 'New Application',
-      message: `${creator?.name || 'A creator'} applied to "${campaign.title}"`,
-      data: { applicationId: application.id, campaignId: campaign.id },
+      message: `New application from @${creator?.username || 'unknown'} for "${campaign.title}"`,
+      metadata: { applicationId: application.id, campaignId: campaign.id },
     });
 
     return sendCreated(res, { application });
@@ -128,6 +140,67 @@ export function getCreatorApplications() {
                   logo: true,
                 },
               },
+            },
+          },
+        },
+      }),
+      prisma.application.count({ where }),
+    ]);
+
+    return sendSuccess(res, {
+      applications,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
+  };
+}
+
+export function getVenueApplications() {
+  return async (req: Request, res: Response) => {
+    const { userId } = res.locals;
+    const queryResult = applicationQuerySchema.safeParse(req.query);
+
+    if (!queryResult.success) {
+      return sendError(res, queryResult.error.errors[0].message, 400);
+    }
+
+    const { status, page, limit } = queryResult.data;
+
+    const venueCampaigns = await prisma.campaign.findMany({
+      where: { venueId: userId },
+      select: { id: true },
+    });
+
+    const campaignIds = venueCampaigns.map((c) => c.id);
+
+    const where: Prisma.ApplicationWhereInput = {
+      campaignId: { in: campaignIds },
+      ...(status && { status }),
+    };
+
+    const [applications, total] = await Promise.all([
+      prisma.application.findMany({
+        where,
+        orderBy: { appliedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          campaign: {
+            select: {
+              id: true,
+              title: true,
+              category: true,
+            },
+          },
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              avatar: true,
+              bio: true,
+              instagramFollowers: true,
+              tiktokFollowers: true,
+              engagementRate: true,
             },
           },
         },
@@ -240,26 +313,46 @@ export function updateApplication() {
         },
       });
 
-      // Notify creator about acceptance
-      await createNotification({
-        userId: existingApp.creatorId,
-        userType: 'creator',
+      try {
+        await createNotification({
+          userId: existingApp.creatorId,
+          userType: 'creator',
+          type: 'application_accepted',
+          title: 'Application Accepted!',
+          message: `Your application to "${application.campaign.title}" was accepted`,
+          data: { applicationId: application.id, campaignId: application.campaign.id },
+        });
+      } catch (err) {
+        console.error('Failed to create notification for accepted application:', err);
+      }
+
+      await logActivity({
+        venueId: application.campaign.venueId,
         type: 'application_accepted',
-        title: 'Application Accepted!',
-        message: `Your application to "${application.campaign.title}" was accepted`,
-        data: { applicationId: application.id, campaignId: application.campaign.id },
+        message: `Accepted @${application.creator.username} for "${application.campaign.title}"`,
+        metadata: { applicationId: application.id, campaignId: application.campaign.id },
       });
     }
 
     if (status === 'rejected') {
-      // Notify creator about rejection
-      await createNotification({
-        userId: existingApp.creatorId,
-        userType: 'creator',
+      try {
+        await createNotification({
+          userId: existingApp.creatorId,
+          userType: 'creator',
+          type: 'application_rejected',
+          title: 'Application Update',
+          message: `Your application to "${application.campaign.title}" was not accepted`,
+          data: { applicationId: application.id, campaignId: application.campaign.id },
+        });
+      } catch (err) {
+        console.error('Failed to create notification for rejected application:', err);
+      }
+
+      await logActivity({
+        venueId: application.campaign.venueId,
         type: 'application_rejected',
-        title: 'Application Update',
-        message: `Your application to "${application.campaign.title}" was not accepted`,
-        data: { applicationId: application.id, campaignId: application.campaign.id },
+        message: `Rejected application from @${application.creator.username}`,
+        metadata: { applicationId: application.id, campaignId: application.campaign.id },
       });
     }
 

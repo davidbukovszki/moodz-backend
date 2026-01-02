@@ -4,6 +4,7 @@ import { sendSuccess, sendError, sendCreated } from '../../utils/response.js';
 import { createReviewSchema, reviewQuerySchema } from '../../validations/review/review.validation.js';
 import { Prisma, SenderType } from '@prisma/client';
 import { createNotification } from '../notification/notification.controller.js';
+import { logActivity } from '../../utils/activityLogger.js';
 
 export function createReview() {
   return async (req: Request, res: Response) => {
@@ -85,6 +86,15 @@ export function createReview() {
       message: `${reviewerName || 'Someone'} left you a ${result.data.rating}-star review`,
       data: { reviewId: review.id, applicationId, rating: result.data.rating },
     });
+
+    if (isCreator) {
+      await logActivity({
+        venueId: revieweeId,
+        type: 'review_received',
+        message: `Received a ${result.data.rating}-star review from @${(await prisma.creator.findUnique({ where: { id: userId }, select: { username: true } }))?.username || 'unknown'}`,
+        metadata: { reviewId: review.id, rating: result.data.rating },
+      });
+    }
 
     return sendCreated(res, { review });
   };

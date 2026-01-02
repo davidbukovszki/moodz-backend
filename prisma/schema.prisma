@@ -1,0 +1,378 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  pending
+  active
+  verified
+  suspended
+}
+
+enum CampaignStatus {
+  draft
+  active
+  paused
+  completed
+  full
+  upcoming
+}
+
+enum DealType {
+  free
+  discounted
+  combo
+}
+
+enum ApplicationStatus {
+  pending
+  accepted
+  rejected
+  completed
+  cancelled
+}
+
+enum ConversationStatus {
+  active
+  archived
+  blocked
+}
+
+enum SenderType {
+  creator
+  venue
+}
+
+enum SubscriptionStatus {
+  active
+  cancelled
+  expired
+}
+
+enum SubscriptionPeriod {
+  free_trial
+  monthly
+  yearly
+}
+
+enum RecurringFrequency {
+  weekly
+  biweekly
+  monthly
+}
+
+enum Platform {
+  instagram
+  tiktok
+  facebook
+  youtube
+}
+
+enum ContentType {
+  instagram_post
+  instagram_reel
+  instagram_story
+  tiktok_video
+  facebook_post
+  youtube_short
+  google_review
+  tripadvisor_review
+}
+
+model Creator {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  password           String
+  name               String
+  username           String    @unique
+  bio                String?
+  avatar             String?
+  city               String
+  instagramHandle    String?
+  instagramFollowers Int?
+  tiktokHandle       String?
+  tiktokFollowers    Int?
+  facebookHandle     String?
+  engagementRate     Decimal?
+  status             UserStatus @default(pending)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  applications       Application[]
+  reviews            Review[]       @relation("CreatorReviews")
+  reviewsReceived    Review[]       @relation("CreatorReviewsReceived")
+  achievements       Achievement[]
+  socialAccounts     SocialAccount[]
+  favorites          Favorite[]
+  conversations      Conversation[]
+  messages           Message[]
+  activityLogs       ActivityLog[]
+
+  @@map("creators")
+}
+
+model Venue {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  password           String
+  companyName        String
+  category           String
+  description        String?
+  logo               String?
+  address            String
+  city               String
+  country            String    @default("Hungary")
+  phone              String?
+  website            String?
+  instagramHandle    String?
+  facebookHandle     String?
+  tiktokHandle       String?
+  status             UserStatus @default(pending)
+  rating             Decimal?
+  totalCampaigns     Int       @default(0)
+  responseTime       String?
+  credits            Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  campaigns          Campaign[]
+  reviews            Review[]       @relation("VenueReviews")
+  reviewsReceived    Review[]       @relation("VenueReviewsReceived")
+  conversations      Conversation[]
+  messages           Message[]
+  activityLogs       ActivityLog[]
+  subscription       VenueSubscription?
+
+  @@map("venues")
+}
+
+model Campaign {
+  id                     String         @id @default(uuid())
+  venueId                String
+  title                  String
+  description            String
+  coverImage             String?
+  category               String
+  status                 CampaignStatus @default(draft)
+  dealType               DealType
+  offerDescription       String
+  offerValue             Decimal
+  discountAmount         String?
+  couponCode             String?
+  address                String?
+  location               String
+  startDate              DateTime
+  endDate                DateTime?
+  spotsTotal             Int
+  spotsUsed              Int            @default(0)
+  maxApplications        Int?
+  unlimitedApplications  Boolean        @default(false)
+  minFollowers           Int?
+  minEngagementRate      Decimal?
+  targetFollowerRanges   String[]
+  targetInfluencerFields String[]
+  requiredPlatforms      ContentType[]
+  requiresPhoto          Boolean        @default(false)
+  requiresVideo          Boolean        @default(false)
+  enableAISelection      Boolean        @default(false)
+  aiConditions           String?
+  enableSchedule         Boolean        @default(false)
+  scheduleLaunchDate     DateTime?
+  enableRecurring        Boolean        @default(false)
+  recurringFrequency     RecurringFrequency?
+  tags                   String[]
+  totalApplicants        Int            @default(0)
+  totalAccepted          Int            @default(0)
+  totalReach             Int            @default(0)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  venue                  Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  applications           Application[]
+  favorites              Favorite[]
+
+  @@map("campaigns")
+}
+
+model Application {
+  id            String            @id @default(uuid())
+  campaignId    String
+  creatorId     String
+  status        ApplicationStatus @default(pending)
+  appliedAt     DateTime          @default(now())
+  reviewedAt    DateTime?
+  visitDate     DateTime?
+  completedAt   DateTime?
+  creatorNote   String?
+  venueNote     String?
+
+  campaign      Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creator       Creator           @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  reviews       Review[]
+  conversation  Conversation?
+
+  @@unique([campaignId, creatorId])
+  @@map("applications")
+}
+
+model Review {
+  id            String     @id @default(uuid())
+  applicationId String
+  reviewerId    String
+  revieweeId    String
+  reviewerType  SenderType
+  rating        Int
+  comment       String?
+  helpfulCount  Int        @default(0)
+  createdAt     DateTime   @default(now())
+
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  
+  creatorReviewer  Creator? @relation("CreatorReviews", fields: [reviewerId], references: [id], onDelete: Cascade, map: "review_creator_reviewer")
+  venueReviewer    Venue?   @relation("VenueReviews", fields: [reviewerId], references: [id], onDelete: Cascade, map: "review_venue_reviewer")
+  creatorReviewee  Creator? @relation("CreatorReviewsReceived", fields: [revieweeId], references: [id], onDelete: Cascade, map: "review_creator_reviewee")
+  venueReviewee    Venue?   @relation("VenueReviewsReceived", fields: [revieweeId], references: [id], onDelete: Cascade, map: "review_venue_reviewee")
+
+  @@map("reviews")
+}
+
+model SubscriptionPlan {
+  id                   String             @id @default(uuid())
+  name                 String
+  price                Decimal
+  currency             String             @default("EUR")
+  period               SubscriptionPeriod
+  description          String?
+  features             String[]
+  campaignsPerMonth    Int?
+  influencersPerMonth  Int?
+  hasAISelection       Boolean            @default(false)
+  hasAdvancedAnalytics Boolean            @default(false)
+  hasScheduling        Boolean            @default(false)
+  hasCouponCodes       Boolean            @default(false)
+  hasPrioritySupport   Boolean            @default(false)
+  isPopular            Boolean            @default(false)
+  isActive             Boolean            @default(true)
+
+  subscriptions        VenueSubscription[]
+
+  @@map("subscription_plans")
+}
+
+model VenueSubscription {
+  id         String             @id @default(uuid())
+  venueId    String             @unique
+  planId     String
+  status     SubscriptionStatus @default(active)
+  startDate  DateTime           @default(now())
+  endDate    DateTime?
+  autoRenew  Boolean            @default(true)
+
+  venue      Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  plan       SubscriptionPlan   @relation(fields: [planId], references: [id])
+
+  @@map("venue_subscriptions")
+}
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  creatorId  String?
+  venueId    String?
+  type       String
+  message    String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  creator    Creator? @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  venue      Venue?   @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+}
+
+model Achievement {
+  id              String    @id @default(uuid())
+  creatorId       String
+  achievementType String
+  label           String
+  unlockedAt      DateTime?
+  progress        Int?
+  targetValue     Int?
+
+  creator         Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@map("achievements")
+}
+
+model SocialAccount {
+  id             String   @id @default(uuid())
+  creatorId      String
+  platform       Platform
+  platformUserId String
+  accessToken    String
+  refreshToken   String?
+  followers      Int?
+  engagementRate Decimal?
+  lastSynced     DateTime?
+
+  creator        Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([creatorId, platform])
+  @@map("social_accounts")
+}
+
+model Favorite {
+  id         String   @id @default(uuid())
+  creatorId  String
+  campaignId String
+  createdAt  DateTime @default(now())
+
+  creator    Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([creatorId, campaignId])
+  @@map("favorites")
+}
+
+model Conversation {
+  id                 String             @id @default(uuid())
+  applicationId      String?            @unique
+  creatorId          String
+  venueId            String
+  lastMessageAt      DateTime?
+  creatorUnreadCount Int                @default(0)
+  venueUnreadCount   Int                @default(0)
+  status             ConversationStatus @default(active)
+  createdAt          DateTime           @default(now())
+
+  application        Application?       @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  creator            Creator            @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  venue              Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  messages           Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String    @id @default(uuid())
+  conversationId String
+  senderId       String
+  senderType     SenderType
+  content        String
+  attachmentUrl  String?
+  attachmentType String?
+  isRead         Boolean   @default(false)
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  creatorSender  Creator?     @relation(fields: [senderId], references: [id], onDelete: Cascade, map: "message_creator_sender")
+  venueSender    Venue?       @relation(fields: [senderId], references: [id], onDelete: Cascade, map: "message_venue_sender")
+
+  @@map("messages")
+}
+

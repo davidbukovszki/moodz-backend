@@ -6,6 +6,7 @@ import {
   updateVenueProfile,
   getVenueStats,
   getVenueActivity,
+  getVenueReviews,
 } from '../../controllers/venue/venue.controller.js';
 import { ALL_VENUES } from '../../constants/roles.js';
 
@@ -23,6 +24,13 @@ router.get(
   authenticate(),
   authorizeUser(ALL_VENUES),
   getVenueActivity(),
+);
+
+router.get(
+  '/me/reviews',
+  authenticate(),
+  authorizeUser(ALL_VENUES),
+  getVenueReviews(),
 );
 
 router.put(

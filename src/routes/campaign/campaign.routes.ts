@@ -7,6 +7,7 @@ import {
   getCampaign,
   createCampaign,
   updateCampaign,
+  updateCampaignStatus,
   deleteCampaign,
   getVenueCampaigns,
 } from '../../controllers/campaign/campaign.controller.js';
@@ -45,6 +46,14 @@ router.put(
   authorizeUser(ALL_VENUES),
   validateCampaign(true),
   updateCampaign(),
+);
+
+router.patch(
+  '/:campaignId/status',
+  authenticate(),
+  authorizeUser(ALL_VENUES),
+  validateCampaign(true),
+  updateCampaignStatus(),
 );
 
 router.delete(

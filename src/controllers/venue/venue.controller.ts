@@ -132,3 +132,70 @@ export function getVenueActivity() {
   };
 }
 
+export function getVenueReviews() {
+  return async (req: Request, res: Response) => {
+    const { userId } = res.locals;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where: { revieweeId: userId, reviewerType: 'creator' },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          reviewer: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              avatar: true,
+            },
+          },
+          application: {
+            select: {
+              id: true,
+              campaign: {
+                select: {
+                  id: true,
+                  title: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.review.count({ where: { revieweeId: userId, reviewerType: 'creator' } }),
+    ]);
+
+    const ratingStats = await prisma.review.groupBy({
+      by: ['rating'],
+      where: { revieweeId: userId, reviewerType: 'creator' },
+      _count: true,
+    });
+
+    const ratingDistribution = [5, 4, 3, 2, 1].map((stars) => ({
+      stars,
+      count: ratingStats.find((r) => r.rating === stars)?._count || 0,
+    }));
+
+    const avgRating = await prisma.review.aggregate({
+      where: { revieweeId: userId, reviewerType: 'creator' },
+      _avg: { rating: true },
+    });
+
+    return sendSuccess(res, {
+      reviews,
+      ratingDistribution,
+      averageRating: avgRating._avg.rating || 0,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  };
+}
+

@@ -38,6 +38,10 @@ export const updateCampaignSchema = createCampaignSchema.partial().extend({
   status: z.nativeEnum(CampaignStatus).optional(),
 });
 
+export const updateCampaignStatusSchema = z.object({
+  status: z.nativeEnum(CampaignStatus),
+});
+
 export const campaignQuerySchema = z.object({
   status: z.nativeEnum(CampaignStatus).optional(),
   category: z.string().optional(),
@@ -52,5 +56,6 @@ export const campaignQuerySchema = z.object({
 
 export type CreateCampaignInput = z.infer<typeof createCampaignSchema>;
 export type UpdateCampaignInput = z.infer<typeof updateCampaignSchema>;
+export type UpdateCampaignStatusInput = z.infer<typeof updateCampaignStatusSchema>;
 export type CampaignQueryInput = z.infer<typeof campaignQuerySchema>;
 

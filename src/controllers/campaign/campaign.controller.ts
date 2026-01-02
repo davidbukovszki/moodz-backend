@@ -4,6 +4,7 @@ import { sendSuccess, sendError, sendCreated, sendNoContent } from '../../utils/
 import {
   createCampaignSchema,
   updateCampaignSchema,
+  updateCampaignStatusSchema,
   campaignQuerySchema,
 } from '../../validations/campaign/campaign.validation.js';
 import { Prisma } from '@prisma/client';
@@ -147,6 +148,35 @@ export function updateCampaign() {
     const campaign = await prisma.campaign.update({
       where: { id: existingCampaign.id },
       data: updateData,
+      include: {
+        venue: {
+          select: {
+            id: true,
+            companyName: true,
+            logo: true,
+          },
+        },
+      },
+    });
+
+    return sendSuccess(res, { campaign });
+  };
+}
+
+export function updateCampaignStatus() {
+  return async (req: Request, res: Response) => {
+    const result = updateCampaignStatusSchema.safeParse(req.body);
+
+    if (!result.success) {
+      return sendError(res, result.error.errors[0].message, 400);
+    }
+
+    const { campaign: existingCampaign } = res.locals;
+    const { status } = result.data;
+
+    const campaign = await prisma.campaign.update({
+      where: { id: existingCampaign.id },
+      data: { status },
       include: {
         venue: {
           select: {

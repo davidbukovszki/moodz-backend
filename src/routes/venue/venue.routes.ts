@@ -7,6 +7,7 @@ import {
   getVenueStats,
   getVenueActivity,
   getVenueReviews,
+  getVenueAnalytics,
 } from '../../controllers/venue/venue.controller.js';
 import { ALL_VENUES } from '../../constants/roles.js';
 
@@ -31,6 +32,13 @@ router.get(
   authenticate(),
   authorizeUser(ALL_VENUES),
   getVenueReviews(),
+);
+
+router.get(
+  '/me/analytics',
+  authenticate(),
+  authorizeUser(ALL_VENUES),
+  getVenueAnalytics(),
 );
 
 router.put(

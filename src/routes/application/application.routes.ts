@@ -10,6 +10,7 @@ import {
   getCampaignApplications,
   updateApplication,
   cancelApplication,
+  checkApplicationStatus,
 } from '../../controllers/application/application.controller.js';
 import { ALL_USERS, ALL_CREATORS, ALL_VENUES } from '../../constants/roles.js';
 
@@ -34,6 +35,13 @@ router.get(
   authenticate(),
   authorizeUser(ALL_VENUES),
   getCampaignApplications(),
+);
+
+router.get(
+  '/check',
+  authenticate(),
+  authorizeUser(ALL_CREATORS),
+  checkApplicationStatus(),
 );
 
 router.get(

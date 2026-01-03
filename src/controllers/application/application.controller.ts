@@ -137,7 +137,13 @@ export function getCreatorApplications() {
                 select: {
                   id: true,
                   companyName: true,
+                  category: true,
                   logo: true,
+                  address: true,
+                  city: true,
+                  rating: true,
+                  totalCampaigns: true,
+                  responseTime: true,
                 },
               },
             },
@@ -379,6 +385,34 @@ export function cancelApplication() {
     });
 
     return sendNoContent(res);
+  };
+}
+
+export function checkApplicationStatus() {
+  return async (req: Request, res: Response) => {
+    const { userId } = res.locals;
+    const campaignIdsParam = req.query.campaignIds as string;
+    
+    if (!campaignIdsParam) {
+      return sendSuccess(res, { applications: {} });
+    }
+
+    const campaignIds = campaignIdsParam.split(',').filter(Boolean);
+
+    const applications = await prisma.application.findMany({
+      where: {
+        creatorId: userId,
+        campaignId: { in: campaignIds },
+      },
+      select: { campaignId: true, status: true },
+    });
+
+    const statusMap = applications.reduce((acc, app) => {
+      acc[app.campaignId] = app.status;
+      return acc;
+    }, {} as Record<string, string>);
+
+    return sendSuccess(res, { applications: statusMap });
   };
 }
 

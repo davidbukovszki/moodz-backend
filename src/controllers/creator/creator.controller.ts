@@ -93,7 +93,7 @@ export function getCreatorStats() {
   return async (_req: Request, res: Response) => {
     const { userId } = res.locals;
 
-    const [applications, completedValue] = await Promise.all([
+    const [applications, completedValue, upcomingVisits] = await Promise.all([
       prisma.application.groupBy({
         by: ['status'],
         where: { creatorId: userId },
@@ -102,6 +102,20 @@ export function getCreatorStats() {
       prisma.application.findMany({
         where: { creatorId: userId, status: 'completed' },
         include: { campaign: { select: { offerValue: true } } },
+      }),
+      prisma.application.findMany({
+        where: {
+          creatorId: userId,
+          status: 'accepted',
+          visitDate: { gte: new Date() },
+        },
+        orderBy: { visitDate: 'asc' },
+        take: 5,
+        select: {
+          id: true,
+          visitDate: true,
+          campaign: { select: { id: true, title: true } },
+        },
       }),
     ]);
 
@@ -122,6 +136,12 @@ export function getCreatorStats() {
         completed: statusCounts.completed || 0,
         rejected: statusCounts.rejected || 0,
         totalValueSaved: totalSaved,
+        upcomingVisitsCount: upcomingVisits.length,
+        upcomingVisits: upcomingVisits.map((v) => ({
+          id: v.id,
+          visitDate: v.visitDate,
+          campaignTitle: v.campaign.title,
+        })),
       },
     });
   };
